@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<base href="/cmopediatria/">
+<title>SIAF-CMO Pediatría</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%2322a699'/%3E%3Ctext x='50' y='66' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif'%3E%F0%9F%A7%92%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+<header class="hero">
+	<h1>SIAF-CMO Pediatría</h1>
+	<p>Sistema inteligente de atención farmacéutica para estratificar, priorizar y documentar pacientes pediátricos según el modelo CMO.</p>
+	<p class="notice">La preestratificación es un analizador local de reglas, sin IA generativa ni envío de datos. No introduzca nombres, NHC, DNI, fechas completas, dirección, teléfono ni otros identificadores.</p>
+</header>
+<main>
+	<section class="status">
+		<div><span id="score">0/57</span><small>Puntuación</small></div>
+		<div><span id="priority">P3</span><small>Prioridad final</small></div>
+		<div><span id="statusState">Provisional</span><small>Estado</small></div>
+		<div><span id="autoCriterion">Sin criterio automático</span><small>Criterio automático</small></div>
+	</section>
+
+	<section class="panel">
+		<h2>Identificación pseudonimizada</h2>
+		<label for="pseudo">Identificador pseudonimizado del paciente</label>
+		<input id="pseudo" placeholder="Código pseudónimo (nunca nombre, DNI o NHC)">
+
+		<h3>Identificación profesional</h3>
+		<p>Datos obligatorios para finalizar de forma definitiva la estratificación.</p>
+		<label for="hospital">Hospital o centro sanitario</label>
+		<input id="hospital" placeholder="Hospital o centro sanitario" aria-describedby="validation">
+		<label for="pharmacist">Farmacéutico responsable</label>
+		<input id="pharmacist" placeholder="Farmacéutico responsable" aria-describedby="validation">
+		<p id="validation" class="error-text" aria-live="assertive"></p>
+	</section>
+
+	<section class="panel">
+		<h2>Datos generales pediátricos</h2>
+		<p class="hint">Datos descriptivos. Sólo la edad puntúa (variable "Edad" del bloque demográfico); los grupos de patología son de elegibilidad y no suman puntos.</p>
+		<label for="ageYears">Edad (años cumplidos; use decimales para lactantes, p.ej. 0,5 = 6 meses)</label>
+		<input id="ageYears" type="number" min="0" max="18" step="0.1" placeholder="Edad en años">
+		<h3>Grupo(s) de patología pediátrica (Tabla 1, SEFH)</h3>
+		<div id="pathologyGroups" class="checks"></div>
+	</section>
+
+	<div id="variables"></div>
+
+	<section class="panel">
+		<h2>Modificación clínica manual</h2>
+		<p>El farmacéutico puede modificar de forma justificada la prioridad calculada/automática. El resultado original nunca se oculta. Si la modificación <strong>reduce</strong> la intensidad asistencial respecto a la prioridad calculada, se exige justificación reforzada (mínimo 40 caracteres) y confirmación explícita.</p>
+		<select id="overridePriority">
+			<option value="">Sin modificación</option>
+			<option value="P1">Prioridad 1</option>
+			<option value="P2">Prioridad 2</option>
+			<option value="P3">Prioridad 3</option>
+		</select>
+		<input id="overrideMotive" placeholder="Motivo (breve)">
+		<textarea id="overrideJustification" placeholder="Justificación clínica obligatoria"></textarea>
+		<label class="checkbox-label" id="reinforcedLabel" hidden>
+			<input type="checkbox" id="overrideReinforced">
+			Confirmo que he valorado clínicamente esta reducción de intensidad asistencial respecto a la prioridad calculada/automática.
+		</label>
+		<p id="overrideError" class="error-text" aria-live="assertive"></p>
+	</section>
+
+	<section class="panel">
+		<h2>Detalle y actuaciones</h2>
+		<table>
+			<thead><tr><th>Variable</th><th>Respuesta</th><th>Puntos</th></tr></thead>
+			<tbody id="detail"></tbody>
+		</table>
+		<div id="actions"></div>
+	</section>
+
+	<section class="panel">
+		<h2>Motivación</h2>
+		<p>Orientaciones no puntuables del pilar Motivación del modelo CMO pediátrico: adaptación de la comunicación, participación del niño/adolescente según edad y madurez, participación del cuidador y objetivos farmacoterapéuticos compartidos.</p>
+		<div id="motivacion"></div>
+	</section>
+
+	<section class="panel">
+		<h2>Oportunidad</h2>
+		<p>Orientaciones no puntuables del pilar Oportunidad del modelo CMO pediátrico: atención dual (presencial y remota), telefarmacia y coordinación con cuidadores y entorno.</p>
+		<div id="oportunidad"></div>
+	</section>
+
+	<section class="panel">
+		<h2>Preestratificación automática local</h2>
+		<p>Analizador local, determinista y auditable, sin fetch/XMLHttpRequest, sin claves API y sin almacenamiento del texto pegado. Confirme individualmente cada propuesta: ninguna variable se modifica automáticamente.</p>
+		<textarea id="clinicalText" placeholder="Pegue texto clínico previamente desidentificado"></textarea>
+		<button type="button" id="extract">Analizar localmente</button>
+		<div id="identifierWarning" class="warning-box" hidden></div>
+		<div id="extractResults"></div>
+	</section>
+
+	<section class="panel">
+		<h2>Finalización</h2>
+		<button type="button" id="finish" class="primary">Finalizar estratificación</button>
+		<div id="pendingDialog" class="dialog" role="dialog" aria-modal="true" tabindex="-1" hidden>
+			<h3>Variables clínicas pendientes</h3>
+			<p>Existen <span id="pendingCount"></span> variables pendientes de valoración.</p>
+			<ul id="pendingList"></ul>
+			<button type="button" id="backToForm">Volver al formulario</button>
+			<button type="button" id="finishProvisional">Finalizar como resultado provisional</button>
+		</div>
+		<div id="finalResult" aria-live="polite" hidden></div>
+	</section>
+
+	<section class="panel">
+		<h2>Gestión local e informes</h2>
+		<button type="button" id="save">Guardar valoración</button>
+		<button type="button" id="exportJson">Exportar JSON</button>
+		<button type="button" id="exportCsv">Exportar CSV</button>
+		<button type="button" id="summary">Descargar resumen clínico</button>
+		<button type="button" id="print">Imprimir / guardar como PDF</button>
+		<input id="import" type="file" accept="application/json">
+		<button type="button" id="clear">Borrado completo</button>
+		<ul id="saved"></ul>
+	</section>
+
+	<section class="panel warning">
+		<h2>Aviso profesional</h2>
+		<p>Herramienta de apoyo para profesionales sanitarios. No es una herramienta diagnóstica ni prescriptiva, no sustituye el juicio clínico y debe ser validada antes de su implantación asistencial. No es un producto sanitario certificado.</p>
+		<p>Funciona íntegramente en el navegador del usuario, sin backend ni envío de datos a terceros. El identificador es pseudonimizado y el almacenamiento es local (localStorage), conforme al principio de minimización de datos del RGPD y la LOPDGDD.</p>
+	</section>
+
+	<div id="live" class="sr-only" aria-live="polite"></div>
+</main>
+<footer>Creada por Ramón Morillo Verdugo. Modelo basado en la Adaptación del Modelo de Atención Farmacéutica CMO al Paciente Pediátrico de la Sociedad Española de Farmacia Hospitalaria (SEFH).</footer>
+<script type="module" src="src/app.js"></script>
+</body>
+</html>
