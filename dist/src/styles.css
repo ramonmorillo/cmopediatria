@@ -1,3 +1,4 @@
+@import url("./cmo-visual.css");
 :root{font-family:Inter,system-ui,sans-serif;color:#18333a;background:#eef7f8}
 body{margin:0}
 .hero{background:linear-gradient(135deg,#07505b,#22a699);color:white;padding:2rem clamp(1rem,5vw,5rem);border-bottom-left-radius:36px;border-bottom-right-radius:36px}
