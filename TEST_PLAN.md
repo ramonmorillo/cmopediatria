@@ -1,7 +1,9 @@
 # Plan de pruebas — SIAF-CMO Pediatría
 
 Automatizadas en `tests/clinical.test.js` (`npm test`, Node.js `--test`). Estado a fecha de
-entrega: **15/15 pasan**.
+entrega de la versión 1.1.0: **23/23 pasan**. Además de las pruebas clínicas originales, se
+cubren importación antigua/actual, visitas relacionadas, conjuntos completos, fusión,
+duplicados, conflictos, atomicidad y renderizado seguro.
 
 | # | Caso | Comprobación | Resultado |
 |---|---|---|---|

@@ -34,6 +34,16 @@
 		<input id="hospital" placeholder="Hospital o centro sanitario" aria-describedby="validation">
 		<label for="pharmacist">Farmacéutico responsable</label>
 		<input id="pharmacist" placeholder="Farmacéutico responsable" aria-describedby="validation">
+		<h3>Datos de la visita</h3>
+		<label for="visitType">Tipo de visita</label>
+		<select id="visitType">
+			<option value="">No especificado</option>
+			<option value="initial">Visita inicial</option>
+			<option value="follow-up">Visita de seguimiento</option>
+			<option value="final">Visita final</option>
+		</select>
+		<label for="visitDate">Fecha clínica de la visita</label>
+		<input id="visitDate" type="date">
 		<p id="validation" class="error-text" aria-live="assertive"></p>
 	</section>
 
@@ -111,13 +121,29 @@
 
 	<section class="panel">
 		<h2>Gestión local e informes</h2>
-		<button type="button" id="save">Guardar valoración</button>
-		<button type="button" id="exportJson">Exportar JSON</button>
-		<button type="button" id="exportCsv">Exportar CSV</button>
-		<button type="button" id="summary">Descargar resumen clínico</button>
-		<button type="button" id="print">Imprimir / guardar como PDF</button>
-		<input id="import" type="file" accept="application/json">
-		<button type="button" id="clear">Borrado completo</button>
+		<div class="management-group">
+			<h3>Valoración actual</h3>
+			<p>Guarde o genere informes de la valoración abierta. Importar reemplaza el formulario; crear una nueva visita conserva el original como una valoración independiente.</p>
+			<button type="button" id="save">Guardar valoración</button>
+			<label class="file-action" for="import">Importar valoración JSON</label>
+			<input id="import" class="file-input" type="file" accept="application/json">
+			<label class="file-action" for="newVisit">Nueva visita desde valoración anterior</label>
+			<input id="newVisit" class="file-input" type="file" accept="application/json">
+			<button type="button" id="exportJson">Exportar valoración actual</button>
+			<button type="button" id="exportCsv">Exportar CSV</button>
+			<button type="button" id="summary">Descargar resumen clínico</button>
+			<button type="button" id="print">Imprimir o guardar como PDF</button>
+		</div>
+		<div class="management-group advanced">
+			<h3>Gestión avanzada de registros</h3>
+			<p>Exporte una copia completa o consolide archivos de forma controlada. La fusión muestra una previsualización y nunca sobrescribe conflictos.</p>
+			<button type="button" id="exportAll">Exportar todos los registros</button>
+			<label class="file-action" for="mergeFiles">Fusionar registros JSON</label>
+			<input id="mergeFiles" class="file-input" type="file" accept="application/json" multiple>
+			<div id="mergePreview" class="dialog" hidden></div>
+			<button type="button" id="clear">Borrado completo</button>
+		</div>
+		<h3>Valoraciones guardadas en este navegador</h3>
 		<ul id="saved"></ul>
 	</section>
 

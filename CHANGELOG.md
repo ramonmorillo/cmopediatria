@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0 — Seguimiento longitudinal
+
+- Metadatos de visita, relaciones entre valoraciones y creación de visitas de seguimiento.
+- Exportación versionada del conjunto local y fusión segura con previsualización, copia de
+  seguridad, detección de duplicados/conflictos y escritura atómica.
+- Listado cronológico y renderizado seguro de datos importados.
+- Compatibilidad conservada con JSON individuales anteriores, sin cambios en las reglas clínicas.
+
 ## 1.0.0 — Primera versión
 
 - Implementación completa del modelo de estratificación pediátrico CMO (SEFH): 20 ítems
