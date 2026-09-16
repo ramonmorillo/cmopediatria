@@ -4,13 +4,30 @@ import {
 	validateClinicalValue, MOTIVATION_GUIDANCE, OPPORTUNITY_GUIDANCE, MAX_SCORE
 } from './clinical.js';
 import { prestratify, detectIdentifiers } from './extractor.js';
-import { allCases, saveCase, deleteCase, clearCases } from './storage.js';
+import {
+	allCases, saveCase, deleteCase, clearCases, exportDataset, parseDatasetText,
+	prepareMerge, commitMerge, MAX_RECORDS_PER_MERGE, MAX_JSON_BYTES, validateRecord
+} from './storage.js';
 
-let form = normalizeCase({ values: {}, pathologyGroups: [] });
+const today = () => new Date().toISOString().slice(0, 10);
+let form = normalizeCase({ values: {}, pathologyGroups: [], visitType: 'initial', visitDate: today() });
+let dirty = false;
 
 const $ = s => document.querySelector(s);
 const el = (t, a = {}, h = '') => { const e = document.createElement(t); Object.entries(a).forEach(([k, v]) => e.setAttribute(k, v)); e.innerHTML = h; return e; };
+const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[ch]);
 const variableById = id => VARIABLES.find(v => v.id === id);
+const visitTypeLabel = type => ({ initial: 'Visita inicial', 'follow-up': 'Visita de seguimiento', final: 'Visita final' })[type] || 'No especificado';
+const statusLabel = status => ({ draft: 'Borrador', provisional: 'Provisional', completed: 'Definitiva' })[status] || 'Borrador';
+
+function confirmReplace() {
+	return !dirty || confirm('La valoración abierta contiene cambios no guardados. ¿Desea descartarlos y continuar?');
+}
+
+function saveCurrent() {
+	try { form = saveCase(form); dirty = false; renderSaved(); announce('Valoración guardada localmente.'); }
+	catch { announce('No se pudo guardar la valoración. Compruebe el espacio disponible en el navegador.'); }
+}
 
 function render() {
 	renderPathologyGroups();
@@ -65,6 +82,8 @@ function hydrateForm() {
 	$('#pseudo').value = form.pseudoId || '';
 	$('#hospital').value = form.hospital || '';
 	$('#pharmacist').value = form.pharmacist || '';
+	$('#visitType').value = form.visitType || '';
+	$('#visitDate').value = form.visitDate || '';
 	$('#ageYears').value = form.ageYears ?? '';
 	$('#overridePriority').value = form.override?.priority || '';
 	$('#overrideMotive').value = form.override?.motive || '';
@@ -75,6 +94,7 @@ function hydrateForm() {
 }
 
 function markDraft() {
+	dirty = true;
 	if (form.status === 'completed' || form.status === 'provisional') { form.status = 'draft'; form.outdated = true; }
 }
 
@@ -108,6 +128,8 @@ function update() {
 	form.pseudoId = $('#pseudo').value.trim();
 	form.hospital = $('#hospital').value.trim();
 	form.pharmacist = $('#pharmacist').value.trim();
+	form.visitType = $('#visitType').value;
+	form.visitDate = $('#visitDate').value;
 	form.ageYears = $('#ageYears').value === '' ? undefined : Number($('#ageYears').value);
 	form.override = {
 		priority: $('#overridePriority').value,
@@ -140,19 +162,45 @@ function renderActions(priority) {
 	return Object.values(actionsFor(priority)).map(g => `<h3>${g.label}</h3><ul>${g.items.map(i => `<li>${i}</li>`).join('')}</ul>`).join('');
 }
 
-['pseudo', 'hospital', 'pharmacist', 'ageYears', 'overridePriority', 'overrideJustification', 'overrideMotive', 'overrideReinforced'].forEach(id => {
+['pseudo', 'hospital', 'pharmacist', 'visitType', 'visitDate', 'ageYears', 'overridePriority', 'overrideJustification', 'overrideMotive', 'overrideReinforced'].forEach(id => {
 	setTimeout(() => { $('#' + id).oninput = () => { markDraft(); update(); }; $('#' + id).onchange = () => { markDraft(); update(); }; });
 });
 
-$('#save').onclick = () => { form = saveCase(form); renderSaved(); announce('Valoración guardada localmente.'); };
+$('#save').onclick = () => saveCurrent();
 $('#exportJson').onclick = () => download('caso-pediatria.json', exportCase(form));
 $('#exportCsv').onclick = () => download('detalle-pediatria.csv', toCSV(window.currentResult.details, form));
 $('#summary').onclick = () => download('resumen-clinico-pediatria.txt', report());
 $('#print').onclick = () => window.print();
-$('#import').onchange = e => e.target.files[0].text().then(t => {
-	try { form = importCase(t); render(); announce('Caso importado correctamente.'); }
-	catch (err) { announce('JSON inválido o incompatible: ' + err.message); }
-});
+$('#import').onchange = async e => {
+	const input = e.target, file = input.files[0];
+	try {
+		if (!file || !confirmReplace()) return;
+		if (file.size > MAX_JSON_BYTES) throw new Error('too large');
+		form = validateRecord(importCase(await file.text()));
+		dirty = false; render(); announce('Valoración importada correctamente.');
+	} catch { announce('No se pudo importar: el JSON es inválido o incompatible.'); }
+	finally { input.value = ''; }
+};
+
+$('#newVisit').onchange = async e => {
+	const input = e.target, file = input.files[0];
+	try {
+		if (!file || !confirmReplace()) return;
+		if (file.size > MAX_JSON_BYTES) throw new Error('too large');
+		const source = validateRecord(importCase(await file.text()));
+		const result = calculate(source);
+		const summary = `Código pseudonimizado: ${source.pseudoId || 'no especificado'}\nHospital: ${source.hospital || 'no especificado'}\nTipo: ${visitTypeLabel(source.visitType)}\nFecha: ${source.visitDate || 'no especificada'}\nPrioridad: ${result.finalPriority}\nEstado: ${statusLabel(source.status)}\n\n¿Crear una nueva visita de seguimiento a partir de esta valoración?`;
+		if (!confirm(summary)) return;
+		const previousId = source.id || '';
+		form = normalizeCase({ ...source, id: undefined, createdAt: '', updatedAt: '', visitType: 'follow-up', visitDate: today(), previousAssessmentId: previousId, status: 'draft', completedAt: null, outdated: false });
+		dirty = true; render();
+		announce(previousId ? 'Nueva visita preparada. Se asignará un identificador nuevo al guardarla.' : 'Nueva visita preparada. El archivo anterior no tenía ID y no se puede establecer el enlace técnico.');
+	} catch { announce('No se pudo crear la visita: el JSON es inválido o incompatible.'); }
+	finally { input.value = ''; }
+};
+
+$('#exportAll').onclick = () => download(`siaf-cmo-pediatria-registros-${today()}.json`, exportDataset(), 'application/json');
+$('#mergeFiles').onchange = handleMergeFiles;
 $('#clear').onclick = () => { if (confirm('¿Borrar todos los casos guardados localmente?')) { clearCases(); renderSaved(); announce('Borrado completo realizado.'); } };
 
 $('#extract').onclick = () => {
@@ -216,7 +264,7 @@ function finish(allowProvisional) {
 	$('#pendingDialog').hidden = true;
 	update();
 	renderFinalPanel(true);
-	saveCase(form);
+	form = saveCase(form); dirty = false;
 	renderSaved();
 }
 
@@ -233,16 +281,18 @@ function renderFinalPanel(focus = false) {
 		${form.status === 'provisional' ? '<p class="warning"><strong>Resultado provisional: existen variables clínicas pendientes de valoración.</strong></p>' : ''}
 		${form.outdated ? '<p class="warning"><strong>Resultado pendiente de actualizar tras cambios en el formulario.</strong></p>' : ''}
 		<dl>
-			<dt>Identificador pseudonimizado</dt><dd>${form.pseudoId || 'sin especificar'}</dd>
-			<dt>Hospital o centro sanitario</dt><dd>${form.hospital || ''}</dd>
-			<dt>Farmacéutico responsable</dt><dd>${form.pharmacist || ''}</dd>
+			<dt>Identificador pseudonimizado</dt><dd>${escapeHtml(form.pseudoId || 'sin especificar')}</dd>
+			<dt>Hospital o centro sanitario</dt><dd>${escapeHtml(form.hospital || '')}</dd>
+			<dt>Farmacéutico responsable</dt><dd>${escapeHtml(form.pharmacist || '')}</dd>
+			<dt>Tipo de visita</dt><dd>${visitTypeLabel(form.visitType)}</dd>
+			<dt>Fecha de visita</dt><dd>${escapeHtml(form.visitDate || 'No especificada')}</dd>
 			<dt>Fecha y hora de finalización</dt><dd>${new Date(form.completedAt).toLocaleString('es-ES')}</dd>
 			<dt>Grupo(s) de patología</dt><dd>${(form.pathologyGroups || []).map(id => PATHOLOGY_GROUPS.find(p => p[0] === id)?.[1]).filter(Boolean).join(', ') || 'No indicado'}</dd>
 			<dt>Puntuación total</dt><dd>${rr.total}/${MAX_SCORE}</dd>
 			<dt>Prioridad calculada</dt><dd>${rr.calculatedPriority}</dd>
 			<dt>Criterio automático</dt><dd>${rr.automaticCause || 'No procede (sin criterios automáticos en el modelo pediátrico)'}</dd>
 			<dt>Prioridad final</dt><dd>${rr.finalPriority}</dd>
-			<dt>Modificación clínica manual</dt><dd>${rr.override?.priority ? `${rr.override.priority} — motivo: ${rr.override.motive || 'sin especificar'} — justificación: ${rr.override.justification}` : 'No aplicada'}</dd>
+			<dt>Modificación clínica manual</dt><dd>${rr.override?.priority ? `${escapeHtml(rr.override.priority)} — motivo: ${escapeHtml(rr.override.motive || 'sin especificar')} — justificación: ${escapeHtml(rr.override.justification)}` : 'No aplicada'}</dd>
 			<dt>Estado</dt><dd>${form.status === 'completed' ? 'Definitivo' : 'Provisional'}</dd>
 			<dt>Variables</dt><dd>${VARIABLES.length - pending.length} completadas, ${pending.length} pendientes${pending.length ? ': ' + pending.map(d => d.variable.label).join(', ') : ''}</dd>
 			<dt>Periodicidad</dt><dd>${PERIODICITY[rr.finalPriority]}</dd>
@@ -263,14 +313,65 @@ function showFieldError(id, msg) { $('#' + id).setAttribute('aria-invalid', 'tru
 function announce(msg) { $('#live').textContent = msg; }
 
 function renderSaved() {
-	$('#saved').innerHTML = allCases().map(c => `<li>${c.pseudoId || c.id} — ${c.status || 'draft'} <button type="button" data-load="${c.id}">Cargar</button> <button type="button" data-del="${c.id}">Borrar</button></li>`).join('');
-	document.querySelectorAll('[data-load]').forEach(b => b.onclick = () => { form = normalizeCase(allCases().find(c => c.id === b.dataset.load)); render(); });
+	const list = $('#saved');
+	list.replaceChildren();
+	const cases = allCases().sort((a, b) => String(b.visitDate || b.updatedAt || '').localeCompare(String(a.visitDate || a.updatedAt || '')));
+	for (const c of cases) {
+		const li = document.createElement('li');
+		const result = calculate(c);
+		const description = document.createElement('span');
+		description.textContent = `${c.pseudoId || 'Sin código'} — ${visitTypeLabel(c.visitType)} — ${c.visitDate || 'fecha no especificada'} — ${statusLabel(c.status)} — ${result.finalPriority}`;
+		const load = document.createElement('button'); load.type = 'button'; load.dataset.load = c.id; load.textContent = 'Cargar';
+		const remove = document.createElement('button'); remove.type = 'button'; remove.dataset.del = c.id; remove.textContent = 'Borrar';
+		li.append(description, ' ', load, ' ', remove); list.append(li);
+	}
+	document.querySelectorAll('[data-load]').forEach(b => b.onclick = () => { if (!confirmReplace()) return; form = normalizeCase(allCases().find(c => c.id === b.dataset.load)); dirty = false; render(); });
 	document.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if (confirm('¿Borrar este caso?')) { deleteCase(b.dataset.del); renderSaved(); } });
 }
 
-function download(name, text) {
-	const a = el('a', { href: URL.createObjectURL(new Blob([text], { type: 'text/plain' })), download: name });
-	a.click();
+function download(name, text, type = 'text/plain') {
+	const url = URL.createObjectURL(new Blob([text], { type }));
+	const a = el('a', { href: url, download: name }); a.click();
+	setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+async function handleMergeFiles(event) {
+	const input = event.target, files = [...input.files];
+	$('#mergePreview').hidden = true;
+	try {
+		if (!files.length) return;
+		let imported = [], invalid = [];
+		for (const file of files) {
+			try {
+				if (file.size > MAX_JSON_BYTES) throw new Error('El archivo supera el límite de 5 MB.');
+				imported.push(...parseDatasetText(await file.text()));
+			}
+			catch (error) { invalid.push({ file: file.name, reason: error.message }); }
+			if (imported.length > MAX_RECORDS_PER_MERGE) throw new Error(`La selección supera el límite de ${MAX_RECORDS_PER_MERGE} registros por operación.`);
+		}
+		renderMergePreview(prepareMerge(allCases(), imported, invalid));
+	} catch (error) { announce(error.message || 'No se pudieron validar los archivos seleccionados.'); }
+	finally { input.value = ''; }
+}
+
+function renderMergePreview(preview) {
+	const box = $('#mergePreview'); box.replaceChildren(); box.hidden = false;
+	const title = document.createElement('h4'); title.textContent = 'Previsualización de la fusión';
+	const list = document.createElement('ul');
+	for (const text of [`${preview.additions.length} registros nuevos`, `${preview.duplicates.length} duplicados omitidos`, `${preview.conflicts.length} conflictos no importados`, `${preview.invalid.length} registros o archivos inválidos`]) {
+		const li = document.createElement('li'); li.textContent = text; list.append(li);
+	}
+	const confirmButton = document.createElement('button'); confirmButton.type = 'button'; confirmButton.textContent = 'Confirmar fusión';
+	confirmButton.disabled = preview.additions.length === 0;
+	confirmButton.onclick = () => {
+		if (!confirm('¿Confirmar la incorporación de los registros nuevos? Los duplicados y conflictos quedarán fuera.')) return;
+		try {
+			const local = allCases();
+			if (local.length) download(`siaf-cmo-pediatria-copia-seguridad-${today()}.json`, exportDataset(local), 'application/json');
+			const count = commitMerge(preview); box.hidden = true; renderSaved(); announce(`Fusión completada: ${count} registros incorporados; los duplicados y conflictos se han omitido.`);
+		} catch { announce('No se pudo completar la fusión. Los registros locales no se han modificado.'); }
+	};
+	box.append(title, list, confirmButton);
 }
 
 function report() {

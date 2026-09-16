@@ -17,7 +17,10 @@ if (typeof globalThis.localStorage === 'undefined') {
 		removeItem: k => store.delete(k)
 	};
 }
-const { allCases, saveCase, deleteCase, clearCases } = await import('../src/storage.js');
+const {
+	allCases, saveCase, deleteCase, clearCases, exportDataset, parseDatasetText,
+	prepareMerge, commitMerge, DATASET_SCHEMA
+} = await import('../src/storage.js');
 
 const allNo = () => Object.fromEntries(VARIABLES.filter(v => v.type !== 'age').map(v => [v.id, 'no']));
 const allYes = () => Object.fromEntries(VARIABLES.filter(v => v.type !== 'age').map(v => [v.id, 'yes']));
@@ -161,4 +164,73 @@ test('12. Ausencia de llamadas de red o IA generativa externa en el código fuen
 		assert.doesNotMatch(src, /WebSocket/);
 		assert.doesNotMatch(src, /openai|anthropic|azure openai/i);
 	}
+});
+
+test('13. JSON individual actual y antiguo mantienen compatibilidad y metadatos', () => {
+	const current = { id: 'assessment-1', pseudoId: 'P-1', values: allNo(), visitType: 'initial', visitDate: '2026-09-16', createdAt: '2026-09-16T10:00:00Z', updatedAt: '2026-09-16T10:00:00Z' };
+	assert.deepEqual(importCase(exportCase(current)).visitType, 'initial');
+	const legacy = importCase(JSON.stringify({ schema: 'siaf-cmo-pediatria-v1', form: { pseudoId: 'OLD', values: {} } }));
+	assert.equal(legacy.visitDate, '');
+	assert.equal(legacy.createdAt, '');
+});
+
+test('14. Nueva visita conserva enlace pero no reutiliza ID y dos visitas del paciente coexisten', () => {
+	clearCases();
+	const first = saveCase({ pseudoId: 'MISMO', values: allNo(), visitType: 'initial', visitDate: '2026-09-15' });
+	const followUp = saveCase({ pseudoId: first.pseudoId, values: first.values, visitType: 'follow-up', visitDate: '2026-09-16', previousAssessmentId: first.id });
+	assert.notEqual(followUp.id, first.id);
+	assert.equal(followUp.previousAssessmentId, first.id);
+	assert.equal(allCases().filter(c => c.pseudoId === 'MISMO').length, 2);
+});
+
+test('15. Exportación completa produce un conjunto versionado con registros completos', () => {
+	const parsed = JSON.parse(exportDataset([{ id: 'x', pseudoId: 'P', values: {} }]));
+	assert.equal(parsed.schema, DATASET_SCHEMA);
+	assert.equal(parsed.records.length, 1);
+	assert.ok(parsed.exportedAt);
+});
+
+test('16. Fusión añade nuevos, omite idénticos y aísla conflictos por ID', () => {
+	const a = { id: 'a', pseudoId: 'PAC', values: { polypharmacy: 'no' } };
+	const duplicate = structuredClone(a);
+	const conflict = { ...a, values: { polypharmacy: 'yes' }, updatedAt: '2099-01-01T00:00:00Z' };
+	const b = { id: 'b', pseudoId: 'PAC', values: {} };
+	const preview = prepareMerge([a], [duplicate, conflict, b]);
+	assert.equal(preview.additions.length, 1);
+	assert.equal(preview.duplicates.length, 1);
+	assert.equal(preview.conflicts.length, 1);
+	assert.equal(preview.result.length, 2);
+});
+
+test('17. Rechaza esquemas, JSON malformado y registros sin ID para fusión', () => {
+	assert.throws(() => parseDatasetText('{malformed'));
+	assert.throws(() => parseDatasetText(JSON.stringify({ schema: 'ajeno', records: [] })));
+	const preview = prepareMerge([], [{ pseudoId: 'sin-id', values: {} }]);
+	assert.equal(preview.invalid.length, 1);
+	assert.equal(preview.result.length, 0);
+});
+
+test('18. Una escritura fallida durante la fusión no produce estado parcial', () => {
+	clearCases();
+	const original = saveCase({ pseudoId: 'ORIGINAL', values: {} });
+	const before = JSON.stringify(allCases());
+	const realSetItem = localStorage.setItem;
+	localStorage.setItem = () => { throw new Error('quota'); };
+	try { assert.throws(() => commitMerge(prepareMerge([original], [{ id: 'new', pseudoId: 'NEW', values: {} }]))); }
+	finally { localStorage.setItem = realSetItem; }
+	assert.equal(JSON.stringify(allCases()), before);
+});
+
+test('19. El listado local renderiza entradas importadas mediante textContent', () => {
+	const source = fs.readFileSync(new URL('../src/app.js', import.meta.url), 'utf8');
+	assert.match(source, /description\.textContent/);
+	assert.doesNotMatch(source, /saved'\)\.innerHTML/);
+	const malicious = { id: 'evil', pseudoId: '<img src=x onerror=alert(1)>', values: {} };
+	assert.equal(prepareMerge([], [malicious]).additions[0].pseudoId, malicious.pseudoId);
+});
+
+test('20. El cálculo clínico permanece idéntico tras guardar, exportar e importar', () => {
+	const original = { values: allYes(), ageYears: 0.5, visitType: 'follow-up', visitDate: '2026-09-16' };
+	const roundTrip = importCase(exportCase(original));
+	assert.deepEqual(calculate(roundTrip), calculate(original));
 });

@@ -75,6 +75,29 @@ Identificación pseudonimizada del paciente (nunca nombre, DNI o NHC); identific
 obligatoria para finalizar de forma definitiva. Ver `PRIVACY.md`, `AI_POLICY.md` y
 `LEGAL_NOTICE.md`.
 
+### Seguimiento longitudinal y archivos JSON
+
+- **Importar valoración JSON** abre una valoración individual como registro editable y conserva
+  su identificador interno. **Nueva visita desde valoración anterior** copia los datos útiles,
+  pero prepara una valoración independiente con un UUID nuevo, tipo seguimiento y enlace al ID
+  anterior cuando existe. Dos visitas con el mismo código pseudonimizado nunca se sobrescriben
+  por esa coincidencia.
+- **Exportar valoración actual** genera el JSON individual compatible con versiones anteriores.
+  **Exportar todos los registros** crea un conjunto versionado que contiene todas las
+  valoraciones guardadas en este navegador.
+- **Fusionar registros JSON** valida primero todos los archivos (máximo **1.000 registros por
+  operación** y **5 MB por archivo**) y muestra una previsualización. Los ID nuevos se incorporan; los registros con el
+  mismo ID y contenido idéntico se omiten; un mismo ID con contenido diferente se señala como
+  conflicto y **nunca se sobrescribe automáticamente**. Antes de escribir se descarga una copia
+  de seguridad si existen registros locales, y el almacenamiento se actualiza en una sola
+  operación.
+
+Todo el tratamiento y almacenamiento sigue siendo local al navegador: no hay servidor,
+sincronización automática entre equipos ni envío de información. Los conjuntos fusionados son
+copias transferidas manualmente, no un mecanismo de sincronización. Utilice exclusivamente
+códigos pseudonimizados y canales institucionales seguros para trasladar los archivos; no
+introduzca identificadores directos ni texto clínico en los registros.
+
 Herramienta de apoyo profesional: no diagnóstica, no prescriptiva, no sustitutiva del juicio
 clínico, no producto sanitario certificado y pendiente de validación asistencial antes de su
 implantación.

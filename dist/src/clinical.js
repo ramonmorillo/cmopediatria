@@ -4,7 +4,7 @@
 // Ver SOURCE_MAPPING.md para la referencia página/tabla de cada regla y CLINICAL_RULES.md
 // para las incertidumbres marcadas como PENDIENTE DE VALIDACIÓN HUMANA.
 
-export const VERSION = '1.0.0';
+export const VERSION = '1.1.0';
 
 export const DIMENSIONS = {
 	demographic: { label: 'Variables demográficas', max: 5 },
@@ -260,6 +260,11 @@ export function normalizeCase(form = {}) {
 		pharmacist: (form.pharmacist ?? '').trim?.() ?? '',
 		status: form.status || 'draft',
 		completedAt: form.completedAt || null,
+		visitType: ['initial', 'follow-up', 'final'].includes(form.visitType) ? form.visitType : '',
+		visitDate: typeof form.visitDate === 'string' ? form.visitDate : '',
+		previousAssessmentId: typeof form.previousAssessmentId === 'string' ? form.previousAssessmentId : '',
+		createdAt: typeof form.createdAt === 'string' ? form.createdAt : '',
+		updatedAt: typeof form.updatedAt === 'string' ? form.updatedAt : '',
 		schemaVersion: form.schemaVersion || 1
 	};
 }
