@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 
-const required = ['index.html', 'src/clinical.js', 'src/extractor.js', 'src/app.js', 'src/storage.js', 'src/styles.css'];
+const required = ['index.html', 'src/clinical.js', 'src/extractor.js', 'src/app.js', 'src/storage.js', 'src/styles.css', 'src/cmo-visual.css', 'src/cmo-ds/cmo-tokens.css', 'src/cmo-ds/cmo-components.css', 'src/cmo-ds/cmo-author-signature.js', 'src/cmo-ds/CMO-DS-VERSION.json'];
 for (const f of required) if (!fs.existsSync(f)) throw new Error(`Missing ${f}`);
 
 // Verificación de ausencia de red/IA externa en el analizador local.
@@ -8,7 +8,7 @@ const extractorSource = fs.readFileSync('src/extractor.js', 'utf8');
 if (/fetch\s*\(|XMLHttpRequest|WebSocket|openai|anthropic|azure openai|api[_-]?key/i.test(extractorSource)) {
 	throw new Error('External network/AI marker found in src/extractor.js');
 }
-for (const f of ['src/app.js', 'src/clinical.js', 'src/storage.js']) {
+for (const f of ['src/app.js', 'src/clinical.js', 'src/storage.js', ...fs.readdirSync('src/cmo-ds').filter(f => f.endsWith('.js')).map(f => 'src/cmo-ds/' + f)]) {
 	const src = fs.readFileSync(f, 'utf8');
 	if (/fetch\s*\(|XMLHttpRequest|WebSocket/i.test(src)) throw new Error(`Network call marker found in ${f}`);
 }
@@ -16,5 +16,5 @@ for (const f of ['src/app.js', 'src/clinical.js', 'src/storage.js']) {
 fs.rmSync('dist', { recursive: true, force: true });
 fs.mkdirSync('dist/src', { recursive: true });
 fs.copyFileSync('index.html', 'dist/index.html');
-for (const f of fs.readdirSync('src')) fs.copyFileSync('src/' + f, 'dist/src/' + f);
+fs.cpSync('src', 'dist/src', { recursive: true });
 console.log('Build OK for /cmopediatria/');

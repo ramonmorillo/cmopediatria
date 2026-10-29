@@ -1,266 +1,74 @@
-/* CMO Suite · integración visual de Pediatría basada en CMO Migraña */
-:root {
-  --cmo-accent: #ffb55d;
-  --cmo-accent-dark: #b45d40;
-  --cmo-accent-soft: #fff1df;
-  --cmo-bg-a: #673b61;
-  --cmo-bg-b: #276778;
-  --cmo-focus: #ffbf47;
-  --cmo-panel: #f8fbff;
-  --cmo-line: #d8e2f0;
-  --cmo-ink: #172033;
-  --cmo-muted: #5b6880;
-  --cmo-radius: 28px;
-  --cmo-shadow: 0 24px 70px #02081740;
-}
-html {
-  scroll-behavior: smooth;
-}
-body {
-  min-height: 100vh;
-  background: radial-gradient(
-    circle at 15% 8%,
-    var(--cmo-bg-a) 0,
-    #101b33 36%,
-    var(--cmo-bg-b) 100%
-  );
-  color: var(--cmo-ink);
-  line-height: 1.55;
-}
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background-image:
-    linear-gradient(#ffffff08 1px, transparent 1px),
-    linear-gradient(90deg, #ffffff08 1px, transparent 1px);
-  background-size: 44px 44px;
-  pointer-events: none;
-}
-body > header,
-main,
-footer {
-  position: relative;
-}
+/* CMO Design System 0.1.0 · tema «Estratos» de SIAF-CMO Pediatría
+   Se carga después de styles.css. Solo presentación: ningún selector depende de
+   la lógica clínica ni modifica textos, prioridades o umbrales.
+   Tokens: src/cmo-ds/ (copia fijada, ver CMO-DS-VERSION.json). */
+:root { --cmo-accent: #1d7a5a; } /* submarca Pediatría: solo identidad, nunca resultados */
+
+body { background: var(--cmo-paper); color: var(--cmo-ink); line-height: 1.55; }
+
 body > .hero {
-  width: min(1180px, calc(100% - 32px));
-  margin: 24px auto 16px;
-  box-sizing: border-box;
-  padding: clamp(24px, 4vw, 46px);
-  border: 1px solid #ffffff2b;
-  border-radius: var(--cmo-radius);
-  box-shadow: var(--cmo-shadow);
-  background: linear-gradient(135deg, #704067, #b15d5a 55%, #2c6d7c);
+  width: min(1180px, 100% - 32px); margin: 0 auto; box-sizing: border-box;
+  padding: clamp(24px, 4vw, 48px) 0 clamp(20px, 3vw, 32px);
+  background: none; color: var(--cmo-ink); border-radius: 0; border-bottom: 1px solid var(--cmo-rule);
 }
-.hero h1 {
-  max-width: 900px;
-  font-size: clamp(2.5rem, 6vw, 4.8rem);
-  line-height: 0.95;
-  letter-spacing: -0.055em;
-  color: #fff;
+body > .hero::before { /* franja de estratos C·M·O (decorativa) */
+  content: ""; display: block; width: 160px; height: 4px; margin-bottom: var(--cmo-space-4);
+  background: linear-gradient(90deg, var(--cmo-c) 0 50%, transparent 50% 52%, var(--cmo-m) 52% 80%, transparent 80% 82%, var(--cmo-o) 82%);
 }
-.hero > p:not(.notice) {
-  max-width: 880px;
-  margin: 1rem 0;
-  color: #fff;
-  font-size: clamp(1rem, 2vw, 1.14rem);
-}
-.hero .notice {
-  margin: 1.25rem 0 0;
-  padding: .8rem 1rem;
-  border-radius: 12px;
-}
-main {
-  width: min(1180px, calc(100% - 32px));
-  box-sizing: border-box;
-  padding: 0 0 24px;
-}
-.status {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-  margin: 0 0 18px;
-}
-:where(.panel, .status > div, .var-card, .proposal, .dialog, .result) {
-  border-radius: 22px;
-  border-color: var(--cmo-line);
-  box-shadow: 0 16px 42px #0208171c;
-}
-.status > div {
-  min-width: 0;
-  box-sizing: border-box;
-  padding: 18px;
-  background: #ffffffef;
-}
-.status span {
-  color: var(--cmo-accent-dark);
-  overflow-wrap: anywhere;
-}
-.status small {
-  display: block;
-  margin-top: 4px;
-  color: var(--cmo-muted);
-}
-.panel {
-  box-sizing: border-box;
-  margin: 18px 0;
-  padding: clamp(20px, 3vw, 32px);
-  background: #f8fbfff2;
-  border: 1px solid var(--cmo-line);
-}
-.panel h2 {
-  margin: 0 0 1rem;
-  padding-left: .8rem;
-  border-left: 5px solid var(--cmo-accent);
-  color: var(--cmo-ink);
-  font-size: clamp(1.35rem, 2.4vw, 1.75rem);
-}
-.panel h3 {
-  margin: 1.6rem 0 .65rem;
-  color: var(--cmo-accent-dark);
-}
-.var-card {
-  box-sizing: border-box;
-  padding: clamp(18px, 2.5vw, 26px);
-  background: #ffffffef;
-  border: 1px solid var(--cmo-line);
-}
-.chip {
-  background: var(--cmo-accent-soft);
-  color: var(--cmo-accent-dark);
-  font-weight: 800;
-}
-button {
-  min-height: 44px;
-  padding: .72rem 1.1rem;
-  border-radius: 999px;
-  background: var(--cmo-accent-dark);
-  font-weight: 750;
-  transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
-}
-button:hover {
-  background: #8e4937;
-  box-shadow: 0 8px 20px #5e2c2433;
-  transform: translateY(-1px);
-}
-input,
-select,
-textarea {
-  box-sizing: border-box;
-  border-radius: 13px;
-  border-color: #aebbd0;
-  background: #fff;
-}
-.panel > input:not([type="checkbox"]):not([type="file"]),
-.panel > select,
-.panel > textarea {
-  display: block;
-  width: min(100%, 760px);
-  margin: .4rem 0 1rem;
-}
-textarea {
-  min-height: 130px;
-  resize: vertical;
-}
-.checks {
-  gap: .4rem 1.2rem;
-}
-.checks label {
-  padding: .45rem .55rem;
-  border-radius: 10px;
-}
-.checks label:hover {
-  background: var(--cmo-accent-soft);
-}
-table {
-  display: block;
-  overflow-x: auto;
-  border-radius: 14px;
-}
-thead {
-  background: #edf2f8;
-}
-th {
-  color: var(--cmo-ink);
-}
-.proposal {
-  background: #fff;
-}
-.dialog {
-  margin-top: 1rem;
-  border-color: var(--cmo-accent-dark);
-  background: var(--cmo-accent-soft);
-}
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: 4px solid var(--cmo-focus);
-  outline-offset: 2px;
-}
-footer {
-  width: min(1180px, calc(100% - 32px));
-  box-sizing: border-box;
-  margin: 0 auto 24px;
-  padding: 22px;
-  border-radius: 22px;
-  background: #f8fbfff0;
-  color: var(--cmo-ink);
-  border: 1px solid var(--cmo-line);
-  box-shadow: 0 16px 42px #0208171c;
-}
-@media (max-width: 900px) {
-  .status {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
+.hero h1 { margin: .2rem 0 .6rem; font: 600 clamp(2.1rem, 5vw, 3.4rem)/1.08 var(--cmo-font-serif); letter-spacing: -.015em; color: var(--cmo-ink); }
+.hero > p:not(.notice) { max-width: 75ch; color: var(--cmo-ink-muted); font-size: 1.0625rem; }
+.hero .notice { margin: 1.25rem 0 0; padding: .8rem 1rem; border-radius: var(--cmo-radius-sm); }
+
+main { width: min(1180px, 100% - 32px); box-sizing: border-box; margin: auto; padding: var(--cmo-space-5) 0; }
+
+.status { margin: 0 0 var(--cmo-space-4); gap: var(--cmo-space-4); grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.status > div { min-width: 0; padding: var(--cmo-space-4); background: var(--cmo-surface); border: 1px solid var(--cmo-rule);
+  border-radius: var(--cmo-radius-md); box-shadow: var(--cmo-shadow-1); }
+.status span { color: var(--cmo-ink); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.status small { display: block; margin-top: 4px; color: var(--cmo-ink-muted); }
+
+.panel { box-sizing: border-box; margin: var(--cmo-space-5) 0; padding: clamp(20px, 3vw, 32px); background: var(--cmo-surface);
+  border: 1px solid var(--cmo-rule); border-radius: var(--cmo-radius-md); box-shadow: var(--cmo-shadow-1); }
+.panel h2 { margin: 0 0 1rem; padding-left: .8rem; border-left: 4px solid var(--cmo-accent);
+  font: 600 clamp(1.35rem, 2.4vw, 1.7rem)/1.25 var(--cmo-font-serif); color: var(--cmo-ink); }
+.panel h3 { margin: 1.6rem 0 .6rem; color: var(--cmo-ink); }
+.panel :is(h2, h3, h4, label), .var-card :is(h3, h4, p, label) { overflow-wrap: break-word; hyphens: auto; } /* términos largos («inmunosupresor/inmunomodulador») en móvil */
+.var-card { box-sizing: border-box; padding: clamp(16px, 2.5vw, 24px); background: var(--cmo-surface);
+  border: 1px solid var(--cmo-rule); border-radius: var(--cmo-radius-md); box-shadow: none; }
+.chip { background: var(--cmo-brand-soft); color: var(--cmo-brand-strong); font-weight: 700; }
+
+button, .file-action { min-height: 44px; padding: .65rem 1.1rem; border-radius: var(--cmo-radius-sm);
+  background: var(--cmo-brand-strong); color: #fff; font-weight: 600; }
+button:hover, .file-action:hover, .file-action:focus-within { background: var(--cmo-ink); filter: none; }
+input, select, textarea { box-sizing: border-box; min-height: 44px; border: 1px solid var(--cmo-control-border);
+  border-radius: var(--cmo-radius-sm); background: #fff; color: var(--cmo-ink); }
+.panel > input:not([type="checkbox"]):not([type="file"]), .panel > select, .panel > textarea { display: block; width: min(100%, 760px); margin: .4rem 0 1rem; }
+textarea { min-height: 130px; resize: vertical; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .file-action:focus-within {
+  outline: 3px solid var(--cmo-focus); outline-offset: 2px; }
+
+.checks { gap: .4rem 1.2rem; }
+.checks label { padding: .45rem .55rem; border-radius: var(--cmo-radius-sm); }
+.checks label:hover { background: var(--cmo-brand-soft); }
+table { display: block; overflow-x: auto; }
+thead { background: var(--cmo-surface-sunk); }
+.proposal { background: var(--cmo-surface); }
+.dialog { margin-top: 1rem; border-color: var(--cmo-brand-strong); border-radius: var(--cmo-radius-md); background: var(--cmo-brand-soft); }
+
+footer { width: min(1180px, 100% - 32px); box-sizing: border-box; margin: var(--cmo-space-7) auto var(--cmo-space-6);
+  padding: var(--cmo-space-5) 0 0; border-top: 1px solid var(--cmo-rule); text-align: left; color: var(--cmo-ink-muted); font-size: var(--cmo-text-sm); }
+footer cmo-author-signature { margin-top: var(--cmo-space-4); }
+footer .cmo-signature__rows { grid-template-columns: none; } /* styles.css aplica dl{display:grid} global */
+
+@media (max-width: 900px) { .status { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) {
-  body > .hero,
-  main,
-  footer {
-    width: min(100% - 20px, 1180px);
-  }
-  body > .hero {
-    margin-top: 10px;
-    padding: 22px;
-    border-radius: 22px;
-  }
-  .hero h1 {
-    font-size: clamp(2.2rem, 13vw, 3.2rem);
-  }
-  .status {
-    grid-template-columns: 1fr;
-  }
-  .panel,
-  .var-card {
-    padding: 18px;
-  }
-  button {
-    width: 100%;
-    margin: .35rem 0;
-  }
-  .chip {
-    float: none;
-    display: inline-block;
-    margin-bottom: .5rem;
-  }
+  .status { grid-template-columns: 1fr; }
+  .panel, .var-card { padding: 18px; }
+  button { width: 100%; margin: .35rem 0; }
+  .chip { float: none; display: inline-block; margin-bottom: .5rem; }
 }
 @media print {
-  body {
-    background: #fff;
-  }
-  body::before {
-    display: none;
-  }
-  body > .hero,
-  .panel,
-  .status > div,
-  footer {
-    box-shadow: none;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  * {
-    scroll-behavior: auto !important;
-    transition: none !important;
-  }
+  body { background: #fff; }
+  body > .hero::before { display: none; }
+  .panel, .status > div { box-shadow: none; }
 }
