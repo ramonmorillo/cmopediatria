@@ -1,6 +1,10 @@
 # Changelog
 
-## Sin publicar — Identidad CMO Design System 0.1.0 (rama `design/cmo-ds-0.1.0`)
+## 1.2.0 — 2026-10-30 — Identidad CMO Design System
+
+Publicación: `VERSION` 1.1.0 → 1.2.0 (decisión del autor: versión menor por el cambio de interfaz; se incluye en el JSON exportado). CMO Design System actualizado a 0.2.0 (firma multilingüe, compatible). `cmo-app-meta`: `status: "released"`, `releaseDate: "2026-10-30"`. Sin cambios en las reglas clínicas.
+
+### Identidad CMO Design System (antes «sin publicar»)
 
 Cambio exclusivamente visual. Sin cambios en `src/clinical.js`, `src/extractor.js`, `src/storage.js` ni `src/app.js`.
 - Copia fijada del CMO Design System 0.1.0 en `src/cmo-ds/` (manifiesto SHA-256).
