@@ -1,5 +1,15 @@
 # Changelog
 
+## Sin publicar — Identidad CMO Design System 0.1.0 (rama `design/cmo-ds-0.1.0`)
+
+Cambio exclusivamente visual. Sin cambios en `src/clinical.js`, `src/extractor.js`, `src/storage.js` ni `src/app.js`.
+- Copia fijada del CMO Design System 0.1.0 en `src/cmo-ds/` (manifiesto SHA-256).
+- `src/cmo-visual.css` reescrito como tema «Estratos» sobre tokens (sustituye al fondo oscuro degradado); `src/styles.css` pasa a tokens y deja de importar `cmo-visual.css` dos veces.
+- Accesibilidad: foco de #ffbf47 (1,6:1) a #1f3aa8 (9,4:1); borde de campos de #aebbd0 (1,9:1) a #7b8495 (≥3:1).
+- Pie: firma `<cmo-author-signature>` con atribución del modelo a la SEFH y a sus coordinadores; favicon del ecosistema.
+- Build: copia recursiva y control de red ampliado a `src/cmo-ds/`. Pruebas: `tests/cmo-ds.test.js`.
+- Versión: se mantiene 1.1.0 a la espera de decisión del autor (`VERSION` vive en `src/clinical.js` y se exporta).
+
 ## 1.1.0 — Seguimiento longitudinal
 
 - Metadatos de visita, relaciones entre valoraciones y creación de visitas de seguimiento.

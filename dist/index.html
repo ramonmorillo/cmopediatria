@@ -5,11 +5,33 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <base href="/cmopediatria/">
 <title>SIAF-CMO Pediatría</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%2322a699'/%3E%3Ctext x='50' y='66' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif'%3E%F0%9F%A7%92%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="src/cmo-ds/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#14203a">
 <link rel="stylesheet" href="src/styles.css">
 <link rel="stylesheet" href="src/cmo-visual.css">
+<script type="application/json" id="cmo-app-meta">
+{
+	"schema": "cmo-app-meta/1",
+	"id": "cmo-pediatria",
+	"name": "SIAF-CMO Pediatría",
+	"appVersion": "1.1.0",
+	"algorithm": null,
+	"status": "draft",
+	"releaseDate": null,
+	"clinicalReviewDate": null,
+	"credits": [
+		{ "role": "Desarrollo digital", "name": "Dr. Ramón Morillo Verdugo" },
+		{ "role": "Modelo clínico", "name": "SEFH, Adaptación del Modelo de Atención Farmacéutica CMO al Paciente Pediátrico (coord.: Ramón Morillo Verdugo, Maite Pozas del Río; 2025)" }
+	],
+	"model": "Basado en el modelo CMO: Capacidad, Motivación y Oportunidad.",
+	"website": "https://ramonmorillo.es",
+	"copyright": null,
+	"designSystem": "0.1.0"
+}
+</script>
+<script type="module" src="src/cmo-ds/cmo-author-signature.js"></script>
 </head>
-<body>
+<body class="cmo-scope">
 <header class="hero">
 	<h1>SIAF-CMO Pediatría</h1>
 	<p>Sistema inteligente de atención farmacéutica para estratificar, priorizar y documentar pacientes pediátricos según el modelo CMO.</p>
@@ -155,7 +177,10 @@
 
 	<div id="live" class="sr-only" aria-live="polite"></div>
 </main>
-<footer>Creada por Ramón Morillo Verdugo. Modelo basado en la Adaptación del Modelo de Atención Farmacéutica CMO al Paciente Pediátrico de la Sociedad Española de Farmacia Hospitalaria (SEFH).</footer>
+<footer>
+	<p>Creada por Ramón Morillo Verdugo. Modelo basado en la Adaptación del Modelo de Atención Farmacéutica CMO al Paciente Pediátrico de la Sociedad Española de Farmacia Hospitalaria (SEFH).</p>
+	<cmo-author-signature meta="cmo-app-meta"><p>Desarrollo digital: Dr. Ramón Morillo Verdugo · <a href="https://ramonmorillo.es">ramonmorillo.es</a></p></cmo-author-signature>
+</footer>
 <script type="module" src="src/app.js"></script>
 </body>
 </html>
