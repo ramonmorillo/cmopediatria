@@ -4,7 +4,7 @@
 // Ver SOURCE_MAPPING.md para la referencia página/tabla de cada regla y CLINICAL_RULES.md
 // para las incertidumbres marcadas como PENDIENTE DE VALIDACIÓN HUMANA.
 
-export const VERSION = '1.1.0';
+export const VERSION = '1.2.0';
 
 export const DIMENSIONS = {
 	demographic: { label: 'Variables demográficas', max: 5 },
