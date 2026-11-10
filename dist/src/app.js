@@ -220,7 +220,7 @@ $('#extract').onclick = () => {
 	$('#extractResults').innerHTML = relevant.length ? relevant.map((x, i) => {
 		const label = variableById(x.variableId)?.label || x.variableId;
 		const proposalLabel = x.variableId === 'age' ? `Edad ≈ ${x.years?.toFixed?.(1) ?? '?'} años` : (x.proposal === 'yes' ? 'Sí' : x.proposal === 'no' ? 'No' : 'Sin propuesta');
-		return `<div class="proposal" data-proposal-index="${i}"><b>${label}</b>: ${x.status} — propuesta: ${proposalLabel} (certeza: ${x.certainty})<br><small>«…${x.fragment}…»</small><br><em>${x.rule}</em><br>` +
+		return `<div class="proposal" data-proposal-index="${i}"><b>${label}</b>: ${x.status} — propuesta: ${proposalLabel} (certeza: ${x.certainty})<br><small>«…${escapeHtml(x.fragment)}…»</small><br><em>${escapeHtml(x.rule)}</em><br>` +
 			(x.proposal !== 'pending' ? `<button type="button" data-accept="${x.variableId}" data-val="${x.proposal}" data-years="${x.years ?? ''}">Confirmar</button>` : '') +
 			`<button type="button" data-reject>Descartar</button><span class="proposal-state" aria-live="polite"></span></div>`;
 	}).join('') : 'Sin propuestas.';

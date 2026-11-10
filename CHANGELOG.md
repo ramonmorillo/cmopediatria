@@ -1,5 +1,10 @@
 # Changelog
 
+## Sin publicar (rama `claude/zen-pasteur-u8tn7z`) — corrección de seguridad
+
+- **XSS corregido**: el fragmento de evidencia del texto pegado se insertaba como HTML sin escapar (`src/app.js`). Sin cambios en el modelo clínico, el motor ni las reglas del analizador. Prueba de regresión: `tests/xss-escape.test.js`.
+- Origen: auditoría funcional del ecosistema (hub, `docs/ECOSISTEMA_CMO_AUDIT.md`). La versión se fija en el commit de publicación.
+
 ## 1.2.0 — 2026-10-30 — Identidad CMO Design System
 
 Publicación: `VERSION` 1.1.0 → 1.2.0 (decisión del autor: versión menor por el cambio de interfaz; se incluye en el JSON exportado). CMO Design System actualizado a 0.2.0 (firma multilingüe, compatible). `cmo-app-meta`: `status: "released"`, `releaseDate: "2026-10-30"`. Sin cambios en las reglas clínicas.
