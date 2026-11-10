@@ -8,16 +8,17 @@
 <link rel="icon" href="src/cmo-ds/favicon.svg" type="image/svg+xml">
 <meta name="theme-color" content="#14203a">
 <link rel="stylesheet" href="src/styles.css">
+<link rel="stylesheet" href="src/cmo-ds/cmo-flow.css">
 <link rel="stylesheet" href="src/cmo-visual.css">
 <script type="application/json" id="cmo-app-meta">
 {
 	"schema": "cmo-app-meta/1",
 	"id": "cmo-pediatria",
 	"name": "SIAF-CMO Pediatría",
-	"appVersion": "1.2.0",
+	"appVersion": "1.3.0",
 	"algorithm": null,
-	"status": "released",
-	"releaseDate": "2026-10-30",
+	"status": "draft",
+	"releaseDate": null,
 	"clinicalReviewDate": null,
 	"credits": [
 		{ "role": "Desarrollo digital", "name": "Dr. Ramón Morillo Verdugo" },
@@ -26,7 +27,7 @@
 	"model": "Basado en el modelo CMO: Capacidad, Motivación y Oportunidad. Las adaptaciones del modelo CMO son propiedad de la Sociedad Española de Farmacia Hospitalaria (SEFH).",
 	"website": "https://ramonmorillo.es",
 	"copyright": null,
-	"designSystem": "0.2.0"
+	"designSystem": "0.3.0"
 }
 </script>
 <script type="module" src="src/cmo-ds/cmo-author-signature.js"></script>
@@ -38,11 +39,12 @@
 	<p class="notice">La preestratificación es un analizador local de reglas, sin IA generativa ni envío de datos. No introduzca nombres, NHC, DNI, fechas completas, dirección, teléfono ni otros identificadores.</p>
 </header>
 <main>
-	<section class="status">
+	<section class="status" aria-label="Resumen del resultado">
 		<div><span id="score">0/57</span><small>Puntuación</small></div>
 		<div><span id="priority">P3</span><small>Prioridad final</small></div>
 		<div><span id="statusState">Provisional</span><small>Estado</small></div>
 		<div><span id="autoCriterion">Sin criterio automático</span><small>Criterio automático</small></div>
+		<div><progress id="progress" max="20" value="0" aria-label="Variables valoradas"></progress><small id="progressText">0 de 20 variables valoradas</small></div>
 	</section>
 
 	<section class="panel">
@@ -83,14 +85,14 @@
 	<section class="panel">
 		<h2>Modificación clínica manual</h2>
 		<p>El farmacéutico puede modificar de forma justificada la prioridad calculada/automática. El resultado original nunca se oculta. Si la modificación <strong>reduce</strong> la intensidad asistencial respecto a la prioridad calculada, se exige justificación reforzada (mínimo 40 caracteres) y confirmación explícita.</p>
-		<select id="overridePriority">
+		<select id="overridePriority" aria-label="Prioridad tras la modificación clínica manual">
 			<option value="">Sin modificación</option>
 			<option value="P1">Prioridad 1</option>
 			<option value="P2">Prioridad 2</option>
 			<option value="P3">Prioridad 3</option>
 		</select>
-		<input id="overrideMotive" placeholder="Motivo (breve)">
-		<textarea id="overrideJustification" placeholder="Justificación clínica obligatoria"></textarea>
+		<input id="overrideMotive" placeholder="Motivo (breve)" aria-label="Motivo de la modificación">
+		<textarea id="overrideJustification" placeholder="Justificación clínica obligatoria" aria-label="Justificación clínica de la modificación"></textarea>
 		<label class="checkbox-label" id="reinforcedLabel" hidden>
 			<input type="checkbox" id="overrideReinforced">
 			Confirmo que he valorado clínicamente esta reducción de intensidad asistencial respecto a la prioridad calculada/automática.
@@ -99,12 +101,20 @@
 	</section>
 
 	<section class="panel">
-		<h2>Detalle y actuaciones</h2>
+		<h2>Detalle, necesidades y actuaciones</h2>
+		<div class="cmo-table-wrap" tabindex="0" role="region" aria-label="Detalle de variables">
 		<table>
 			<thead><tr><th>Variable</th><th>Respuesta</th><th>Puntos</th></tr></thead>
 			<tbody id="detail"></tbody>
 		</table>
+		</div>
+		<div id="needs"></div>
 		<div id="actions"></div>
+		<h3>Plan de seguimiento</h3>
+		<label for="nextReview">Próxima valoración prevista</label>
+		<input id="nextReview" type="date">
+		<label for="planNotes">Observaciones y acuerdos</label>
+		<textarea id="planNotes" maxlength="2000"></textarea>
 	</section>
 
 	<section class="panel">
@@ -122,7 +132,7 @@
 	<section class="panel">
 		<h2>Preestratificación automática local</h2>
 		<p>Analizador local, determinista y auditable, sin fetch/XMLHttpRequest, sin claves API y sin almacenamiento del texto pegado. Confirme individualmente cada propuesta: ninguna variable se modifica automáticamente.</p>
-		<textarea id="clinicalText" placeholder="Pegue texto clínico previamente desidentificado"></textarea>
+		<textarea id="clinicalText" placeholder="Pegue texto clínico previamente desidentificado" aria-label="Texto clínico seudonimizado"></textarea>
 		<button type="button" id="extract">Analizar localmente</button>
 		<div id="identifierWarning" class="warning-box" hidden></div>
 		<div id="extractResults"></div>
@@ -153,8 +163,11 @@
 			<input id="newVisit" class="file-input" type="file" accept="application/json">
 			<button type="button" id="exportJson">Exportar valoración actual</button>
 			<button type="button" id="exportCsv">Exportar CSV</button>
-			<button type="button" id="summary">Descargar resumen clínico</button>
-			<button type="button" id="print">Imprimir o guardar como PDF</button>
+			<button type="button" id="copyReport">Copiar informe para historia clínica</button>
+			<button type="button" id="downloadPdf">Descargar PDF</button>
+			<button type="button" id="summary">Descargar texto (.txt)</button>
+			<button type="button" id="print">Imprimir</button>
+			<p id="copyStatus" role="status" aria-live="polite"></p>
 		</div>
 		<div class="management-group advanced">
 			<h3>Gestión avanzada de registros</h3>

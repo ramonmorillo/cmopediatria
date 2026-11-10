@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 
-const required = ['index.html', 'src/clinical.js', 'src/extractor.js', 'src/app.js', 'src/storage.js', 'src/styles.css', 'src/cmo-visual.css', 'src/cmo-ds/cmo-tokens.css', 'src/cmo-ds/cmo-components.css', 'src/cmo-ds/cmo-author-signature.js', 'src/cmo-ds/CMO-DS-VERSION.json'];
+const required = ['index.html', 'src/clinical.js', 'src/extractor.js', 'src/app.js', 'src/assessment.js', 'src/storage.js', 'src/styles.css', 'src/cmo-visual.css', 'src/cmo-ds/cmo-tokens.css', 'src/cmo-ds/cmo-components.css', 'src/cmo-ds/cmo-author-signature.js', 'src/cmo-ds/CMO-DS-VERSION.json'];
 for (const f of required) if (!fs.existsSync(f)) throw new Error(`Missing ${f}`);
 
 // Verificación de ausencia de red/IA externa en el analizador local.
