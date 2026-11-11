@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.3.0 — sin publicar (rama `claude/zen-pasteur-u8tn7z`)
+
+Informe único con PDF, registro del estado de las actuaciones, plan de seguimiento, necesidades y resultado provisional con cota superior; importación validada y corrección de defectos. **Sin cambios en las reglas clínicas**: `src/extractor.js` es idéntico; `src/clinical.js` solo cambia la constante `VERSION` (1.2.0 → 1.3.0, la misma que muestra la firma); la huella de las pruebas normaliza esa línea. La fecha y el estado de publicación se fijan en el commit de publicación.
+
+### Novedades
+- **Informe único** (`cmo-report/1`): texto para historia clínica, vista del resultado final, impresión y **PDF real** salen de la misma estructura. Botones nuevos: «Copiar informe para historia clínica» y «Descargar PDF»; «Descargar resumen» pasa a «Descargar texto (.txt)» e incluye ahora el detalle de variables, las actuaciones y el plan. El estado se muestra traducido («Definitiva»/«Provisional»; antes `completed`).
+- **Necesidades** por bloque del modelo (confirmadas y potenciales pendientes de evaluación); las del bloque farmacoterapéutico constituyen las necesidades farmacoterapéuticas del informe.
+- **Actuaciones del modelo con estado** (realizada, planificada, no procede) y **plan de seguimiento** (próxima valoración y observaciones). Se guardan con la valoración.
+- **Resultado provisional**: se rotula también en el informe con la **cota superior** de puntuación si las pendientes resultaran positivas (calculada con los puntos de cada variable). Una variable pendiente nunca se interpreta como «No».
+- Indicador de progreso («n de 20 variables valoradas») y nombres accesibles para los campos de modificación y de texto.
+
+### Defectos corregidos
+- **Edad negativa o no numérica rompía el cálculo** (`TypeError` en el motor): ahora queda pendiente y se señala el campo. La edad fuera de 0–120 años se descarta.
+- **Importación**: el JSON importado se sanea (variables y valores del modelo, actuaciones, plan, grupos de patología, modificación); un valor inventado ya no se puntúa como «No», queda pendiente.
+- **CSV**: comillas dobladas y fórmulas (`=`, `+`, `-`, `@`) neutralizadas.
+- La lista de valoraciones guardadas mostraba la prioridad sin la modificación profesional; ahora muestra la prioridad final.
+- Aviso al salir con cambios sin guardar; tabla de detalle desplazable en móvil (desbordaba a 375 px tras finalizar).
+- XSS por el fragmento de evidencia del analizador (ya en la rama).
+
+### Pruebas
+- `npm test`: 38 (28 previas + 10 del adaptador: huellas, fronteras 16/17 y 30/31, paridad en 300 formularios, pendientes y cota superior, edad inválida, modificación y justificación reforzada, actuaciones, informe, saneado, CSV). `npm run test:e2e`: 6 recorridos en Chromium con axe WCAG A/AA opcional (`AXE_PATH`).
+
+### Pendiente de decisión del autor
+- Reglas del analizador de texto: la negación usa una ventana de 20 caracteres sin límite de frase («Sin sonda. Posible mala adherencia» → adherencia «No»); no se ha modificado.
+- Incoherencias heredadas (`docs/ECOSISTEMA_CMO_AUDIT.md` del hub): 20 ítems frente a «18 variables»; edad entre 2 y 3 años clasificada como «Preescolar (3-5)»; edad > 18 puntúa 0 y permite resultado definitivo (ahora se advierte en el informe).
+- La herramienta sigue siendo una página única con secciones (no un asistente de 7 etapas): el indicador de progreso y el informe único cubren el patrón común sin reescribir el formulario.
+
 ## 1.2.0 — 2026-10-30 — Identidad CMO Design System
 
 Publicación: `VERSION` 1.1.0 → 1.2.0 (decisión del autor: versión menor por el cambio de interfaz; se incluye en el JSON exportado). CMO Design System actualizado a 0.2.0 (firma multilingüe, compatible). `cmo-app-meta`: `status: "released"`, `releaseDate: "2026-10-30"`. Sin cambios en las reglas clínicas.

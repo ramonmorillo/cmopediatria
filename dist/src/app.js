@@ -1,15 +1,20 @@
 import {
 	VARIABLES, DIMENSIONS, PATHOLOGY_GROUPS, calculate, actionsFor, PERIODICITY,
-	exportCase, importCase, toCSV, applyOverride, normalizeCase, finalizeCase,
+	exportCase, importCase, normalizeCase, finalizeCase,
 	validateClinicalValue, MOTIVATION_GUIDANCE, OPPORTUNITY_GUIDANCE, MAX_SCORE
 } from './clinical.js';
 import { prestratify, detectIdentifiers } from './extractor.js';
+import * as A from './assessment.js';
+import { createReport, reportToText, reportToHtml, toCsv, INTERVENTION_STATUSES } from './cmo-ds/cmo-report.js';
+import { reportToPdf } from './cmo-ds/cmo-pdf.js';
+import { copyText, download, guardUnsaved, printHtml, safeFilename } from './cmo-ds/cmo-flow.js';
 import {
 	allCases, saveCase, deleteCase, clearCases, exportDataset, parseDatasetText,
 	prepareMerge, commitMerge, MAX_RECORDS_PER_MERGE, MAX_JSON_BYTES, validateRecord
 } from './storage.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
+const VERSION_LABEL = (() => { try { return JSON.parse(document.getElementById('cmo-app-meta').textContent).appVersion || ''; } catch { return ''; } })();
 let form = normalizeCase({ values: {}, pathologyGroups: [], visitType: 'initial', visitDate: today() });
 let dirty = false;
 
@@ -60,7 +65,7 @@ function renderVariables() {
 			if (v.type === 'age') {
 				ctrl.innerHTML = '<p class="hint">Se calcula automáticamente a partir del campo «Edad (años cumplidos)» de Datos generales pediátricos.</p>';
 			} else {
-				ctrl.innerHTML = `<select data-var="${v.id}"><option value="pending">Pendiente de valoración</option><option value="yes">Sí</option><option value="no">No</option></select>`;
+				ctrl.innerHTML = `<select data-var="${v.id}" aria-label="${escapeHtml(v.label)}"><option value="pending">Pendiente de valoración</option><option value="yes">Sí</option><option value="no">No</option></select>`;
 			}
 			section.append(card);
 		});
@@ -85,6 +90,9 @@ function hydrateForm() {
 	$('#visitType').value = form.visitType || '';
 	$('#visitDate').value = form.visitDate || '';
 	$('#ageYears').value = form.ageYears ?? '';
+	$('#nextReview').value = form.plan?.nextReview || '';
+	$('#planNotes').value = form.plan?.notes || '';
+	actionsPriority = '';
 	$('#overridePriority').value = form.override?.priority || '';
 	$('#overrideMotive').value = form.override?.motive || '';
 	$('#overrideJustification').value = form.override?.justification || '';
@@ -118,11 +126,11 @@ function setClinicalVariable(variableId, value, years) {
 }
 
 function computeResult() {
-	let r = calculate(form);
-	try { r = applyOverride(r, form.override); $('#overrideError').textContent = ''; }
-	catch (e) { $('#overrideError').textContent = e.message; }
-	return r;
+	const ev = A.evaluate(form);
+	$('#overrideError').textContent = ev.overrideError;
+	return ev.result;
 }
+const currentReport = () => createReport(A.buildReportInput(form, A.evaluate(form), { version: VERSION_LABEL }));
 
 function update() {
 	form.pseudoId = $('#pseudo').value.trim();
@@ -130,15 +138,18 @@ function update() {
 	form.pharmacist = $('#pharmacist').value.trim();
 	form.visitType = $('#visitType').value;
 	form.visitDate = $('#visitDate').value;
-	form.ageYears = $('#ageYears').value === '' ? undefined : Number($('#ageYears').value);
+	// Una edad negativa o no numérica queda pendiente (antes rompía el cálculo).
+	form.ageYears = A.cleanAge($('#ageYears').value);
+	$('#ageYears').setAttribute('aria-invalid', String($('#ageYears').value !== '' && form.ageYears === undefined));
 	form.override = {
 		priority: $('#overridePriority').value,
 		justification: $('#overrideJustification').value.trim(),
 		motive: $('#overrideMotive').value.trim(),
 		reinforced: $('#overrideReinforced').checked
 	};
+	form.plan = { nextReview: $('#nextReview').value, notes: $('#planNotes').value };
 
-	const base = calculate(form);
+	const base = A.evaluate(form).base;
 	const basePriority = base.automaticCause || base.calculatedPriority;
 	const rank = { P3: 0, P2: 1, P1: 2 };
 	const wouldReduce = form.override.priority && rank[form.override.priority] < rank[basePriority];
@@ -153,30 +164,47 @@ function update() {
 		$('#sub-' + k)?.replaceChildren(document.createTextNode(`${v}/${DIMENSIONS[k].max}`));
 	}
 	$('#detail').innerHTML = r.details.map(d => `<tr><td>${d.variable.label}</td><td>${d.response}</td><td>${d.points}</td></tr>`).join('');
-	$('#actions').innerHTML = renderActions(r.finalPriority) + `<p><strong>Periodicidad recomendada:</strong> ${PERIODICITY[r.finalPriority]}</p>`;
+	renderNeedsAndActions(A.evaluate(form), r);
+	const doneVars = r.details.filter(d => !d.pending).length;
+	$('#progress').value = doneVars; $('#progress').max = r.details.length;
+	$('#progressText').textContent = `${doneVars} de ${r.details.length} variables valoradas${r.pending ? ' · resultado provisional' : ''}`;
 	window.currentResult = r;
 	renderFinalPanel();
+}
+
+let actionsPriority = '';
+function renderNeedsAndActions(ev, r) {
+	$('#needs').innerHTML = `<h3>Necesidades detectadas</h3>` + A.needsByDimension(ev).map(n => `<h4>${n.dim.label}</h4><ul>${n.confirmed.map(d => `<li>${d.variable.label} — ${escapeHtml(d.response)} (${d.points} p)</li>`).join('') || '<li>Ninguna confirmada</li>'}</ul>${n.potential.length ? `<p class="hint">Potenciales, pendientes de evaluación: ${n.potential.map(d => escapeHtml(d.variable.label)).join('; ')}.</p>` : ''}`).join('');
+	if (actionsPriority !== r.finalPriority) {
+		actionsPriority = r.finalPriority;
+		$('#actions').innerHTML = `<h3>Actuaciones del modelo (${A.priorityLabel(r.finalPriority)}, acumulativas)</h3><p class="hint">Registre cuáles ha realizado, cuáles quedan planificadas y cuáles no proceden.</p>` + Object.entries(A.interventionCatalog(r.finalPriority).reduce((g, a) => { (g[a.groupLabel] ||= []).push(a); return g; }, {})).map(([label, items]) => `<h4>${label}</h4><ul class="status-list">${items.map(a => `<li><span id="int-${a.id}">${escapeHtml(a.label)}</span> <select data-int="${a.id}" aria-labelledby="int-${a.id}">${Object.entries(INTERVENTION_STATUSES).map(([k, l]) => `<option value="${k}"${A.interventionStatus(form, a.id) === k ? ' selected' : ''}>${l}</option>`).join('')}</select></li>`).join('')}</ul>`).join('') + `<p><strong>Periodicidad recomendada:</strong> ${PERIODICITY[r.finalPriority]}</p>`;
+		$('#actions').querySelectorAll('select[data-int]').forEach(sel => { sel.onchange = () => { const st = { ...(form.statuses || {}) }; if (sel.value === 'recommended') delete st[sel.dataset.int]; else st[sel.dataset.int] = sel.value; form.statuses = st; markDraft(); update(); }; });
+	}
 }
 
 function renderActions(priority) {
 	return Object.values(actionsFor(priority)).map(g => `<h3>${g.label}</h3><ul>${g.items.map(i => `<li>${i}</li>`).join('')}</ul>`).join('');
 }
 
-['pseudo', 'hospital', 'pharmacist', 'visitType', 'visitDate', 'ageYears', 'overridePriority', 'overrideJustification', 'overrideMotive', 'overrideReinforced'].forEach(id => {
+['pseudo', 'hospital', 'pharmacist', 'visitType', 'visitDate', 'ageYears', 'overridePriority', 'overrideJustification', 'overrideMotive', 'overrideReinforced', 'nextReview', 'planNotes'].forEach(id => {
 	setTimeout(() => { $('#' + id).oninput = () => { markDraft(); update(); }; $('#' + id).onchange = () => { markDraft(); update(); }; });
 });
 
 $('#save').onclick = () => saveCurrent();
-$('#exportJson').onclick = () => download('caso-pediatria.json', exportCase(form));
-$('#exportCsv').onclick = () => download('detalle-pediatria.csv', toCSV(window.currentResult.details, form));
-$('#summary').onclick = () => download('resumen-clinico-pediatria.txt', report());
-$('#print').onclick = () => window.print();
+const fileBase = () => safeFilename('cmo-ped', form.pseudoId || 'caso', (form.completedAt || form.visitDate || '').slice(0, 10));
+$('#exportJson').onclick = () => download('caso-pediatria.json', exportCase(A.cleanForm(form)), 'application/json');
+$('#exportCsv').onclick = () => download('detalle-pediatria.csv', toCsv(A.csvRows(A.evaluate(form)), { separator: ';' }), 'text/csv;charset=utf-8');
+$('#summary').onclick = () => { download(`${fileBase()}.txt`, report()); announce('Texto descargado.'); };
+$('#print').onclick = () => { const r = currentReport(); printHtml(reportToHtml(r), r.title); };
+$('#downloadPdf').onclick = () => { download(`${fileBase()}.pdf`, reportToPdf(currentReport()), 'application/pdf'); announce('PDF generado.'); };
+$('#copyReport').onclick = async () => { const ok = await copyText(report()); $('#copyStatus').textContent = ok ? 'Informe copiado al portapapeles. Revíselo antes de incorporarlo a la historia clínica.' : 'No se ha podido copiar automáticamente: descargue el texto y cópielo.'; };
+guardUnsaved(() => dirty);
 $('#import').onchange = async e => {
 	const input = e.target, file = input.files[0];
 	try {
 		if (!file || !confirmReplace()) return;
 		if (file.size > MAX_JSON_BYTES) throw new Error('too large');
-		form = validateRecord(importCase(await file.text()));
+		form = A.cleanForm(validateRecord(importCase(await file.text())));
 		dirty = false; render(); announce('Valoración importada correctamente.');
 	} catch { announce('No se pudo importar: el JSON es inválido o incompatible.'); }
 	finally { input.value = ''; }
@@ -187,7 +215,7 @@ $('#newVisit').onchange = async e => {
 	try {
 		if (!file || !confirmReplace()) return;
 		if (file.size > MAX_JSON_BYTES) throw new Error('too large');
-		const source = validateRecord(importCase(await file.text()));
+		const source = A.cleanForm(validateRecord(importCase(await file.text())));
 		const result = calculate(source);
 		const summary = `Código pseudonimizado: ${source.pseudoId || 'no especificado'}\nHospital: ${source.hospital || 'no especificado'}\nTipo: ${visitTypeLabel(source.visitType)}\nFecha: ${source.visitDate || 'no especificada'}\nPrioridad: ${result.finalPriority}\nEstado: ${statusLabel(source.status)}\n\n¿Crear una nueva visita de seguimiento a partir de esta valoración?`;
 		if (!confirm(summary)) return;
@@ -220,7 +248,7 @@ $('#extract').onclick = () => {
 	$('#extractResults').innerHTML = relevant.length ? relevant.map((x, i) => {
 		const label = variableById(x.variableId)?.label || x.variableId;
 		const proposalLabel = x.variableId === 'age' ? `Edad ≈ ${x.years?.toFixed?.(1) ?? '?'} años` : (x.proposal === 'yes' ? 'Sí' : x.proposal === 'no' ? 'No' : 'Sin propuesta');
-		return `<div class="proposal" data-proposal-index="${i}"><b>${label}</b>: ${x.status} — propuesta: ${proposalLabel} (certeza: ${x.certainty})<br><small>«…${x.fragment}…»</small><br><em>${x.rule}</em><br>` +
+		return `<div class="proposal" data-proposal-index="${i}"><b>${label}</b>: ${x.status} — propuesta: ${proposalLabel} (certeza: ${x.certainty})<br><small>«…${escapeHtml(x.fragment)}…»</small><br><em>${escapeHtml(x.rule)}</em><br>` +
 			(x.proposal !== 'pending' ? `<button type="button" data-accept="${x.variableId}" data-val="${x.proposal}" data-years="${x.years ?? ''}">Confirmar</button>` : '') +
 			`<button type="button" data-reject>Descartar</button><span class="proposal-state" aria-live="polite"></span></div>`;
 	}).join('') : 'Sin propuestas.';
@@ -249,7 +277,7 @@ function finish(allowProvisional) {
 	if (!form.hospital) missing.push(['hospital', 'Indique el hospital o centro sanitario.']);
 	if (!form.pharmacist) missing.push(['pharmacist', 'Indique el farmacéutico responsable.']);
 	if (missing.length) { showFieldError(missing[0][0], missing.map(m => m[1]).join(' ')); return; }
-	const r = calculate(form);
+	const r = A.evaluate(form).result;
 	const pending = r.details.filter(d => d.pending);
 	if (pending.length && !allowProvisional) {
 		$('#pendingList').innerHTML = pending.map(d => `<li>${d.variable.label}</li>`).join('');
@@ -276,35 +304,14 @@ function renderFinalPanel(focus = false) {
 	const pending = rr.details.filter(d => d.pending);
 	panel.hidden = false;
 	panel.className = `panel result ${rr.finalPriority.toLowerCase()}`;
-	panel.innerHTML = `
-		<h2>Resultado de estratificación <span class="priority-badge">${rr.finalPriority}</span></h2>
-		${form.status === 'provisional' ? '<p class="warning"><strong>Resultado provisional: existen variables clínicas pendientes de valoración.</strong></p>' : ''}
-		${form.outdated ? '<p class="warning"><strong>Resultado pendiente de actualizar tras cambios en el formulario.</strong></p>' : ''}
-		<dl>
-			<dt>Identificador pseudonimizado</dt><dd>${escapeHtml(form.pseudoId || 'sin especificar')}</dd>
-			<dt>Hospital o centro sanitario</dt><dd>${escapeHtml(form.hospital || '')}</dd>
-			<dt>Farmacéutico responsable</dt><dd>${escapeHtml(form.pharmacist || '')}</dd>
-			<dt>Tipo de visita</dt><dd>${visitTypeLabel(form.visitType)}</dd>
-			<dt>Fecha de visita</dt><dd>${escapeHtml(form.visitDate || 'No especificada')}</dd>
-			<dt>Fecha y hora de finalización</dt><dd>${new Date(form.completedAt).toLocaleString('es-ES')}</dd>
-			<dt>Grupo(s) de patología</dt><dd>${(form.pathologyGroups || []).map(id => PATHOLOGY_GROUPS.find(p => p[0] === id)?.[1]).filter(Boolean).join(', ') || 'No indicado'}</dd>
-			<dt>Puntuación total</dt><dd>${rr.total}/${MAX_SCORE}</dd>
-			<dt>Prioridad calculada</dt><dd>${rr.calculatedPriority}</dd>
-			<dt>Criterio automático</dt><dd>${rr.automaticCause || 'No procede (sin criterios automáticos en el modelo pediátrico)'}</dd>
-			<dt>Prioridad final</dt><dd>${rr.finalPriority}</dd>
-			<dt>Modificación clínica manual</dt><dd>${rr.override?.priority ? `${escapeHtml(rr.override.priority)} — motivo: ${escapeHtml(rr.override.motive || 'sin especificar')} — justificación: ${escapeHtml(rr.override.justification)}` : 'No aplicada'}</dd>
-			<dt>Estado</dt><dd>${form.status === 'completed' ? 'Definitivo' : 'Provisional'}</dd>
-			<dt>Variables</dt><dd>${VARIABLES.length - pending.length} completadas, ${pending.length} pendientes${pending.length ? ': ' + pending.map(d => d.variable.label).join(', ') : ''}</dd>
-			<dt>Periodicidad</dt><dd>${PERIODICITY[rr.finalPriority]}</dd>
-		</dl>
-		<h3>Subtotales por bloque</h3>
-		<ul>${Object.entries(rr.subtotals).map(([k, v]) => `<li>${DIMENSIONS[k].label}: ${v}/${DIMENSIONS[k].max}</li>`).join('')}</ul>
-		<h3>Actuaciones farmacéuticas recomendadas</h3>
-		${renderActions(rr.finalPriority)}
-		<button type="button" id="panelSummary">Descargar resumen</button>
+	const report = currentReport();
+	panel.innerHTML = `${form.outdated ? '<p class="warning"><strong>Resultado pendiente de actualizar tras cambios en el formulario.</strong></p>' : ''}${reportToHtml(report)}
+		<button type="button" id="panelSummary">Descargar texto</button>
+		<button type="button" id="panelPdf">Descargar PDF</button>
 		<button type="button" id="panelPrint">Imprimir</button>`;
-	$('#panelSummary').onclick = () => download('resumen-clinico-pediatria.txt', report());
-	$('#panelPrint').onclick = () => window.print();
+	$('#panelPdf').onclick = () => { download(`${fileBase()}.pdf`, reportToPdf(report), 'application/pdf'); announce('PDF generado.'); };
+	$('#panelSummary').onclick = () => download(`${fileBase()}.txt`, report());
+	$('#panelPrint').onclick = () => printHtml(reportToHtml(report), report.title);
 	if (focus) { panel.setAttribute('tabindex', '-1'); panel.scrollIntoView({ behavior: 'smooth' }); panel.focus(); announce('Resultado de estratificación generado.'); }
 }
 
@@ -318,21 +325,15 @@ function renderSaved() {
 	const cases = allCases().sort((a, b) => String(b.visitDate || b.updatedAt || '').localeCompare(String(a.visitDate || a.updatedAt || '')));
 	for (const c of cases) {
 		const li = document.createElement('li');
-		const result = calculate(c);
+		const result = A.evaluate(c).result;
 		const description = document.createElement('span');
 		description.textContent = `${c.pseudoId || 'Sin código'} — ${visitTypeLabel(c.visitType)} — ${c.visitDate || 'fecha no especificada'} — ${statusLabel(c.status)} — ${result.finalPriority}`;
 		const load = document.createElement('button'); load.type = 'button'; load.dataset.load = c.id; load.textContent = 'Cargar';
 		const remove = document.createElement('button'); remove.type = 'button'; remove.dataset.del = c.id; remove.textContent = 'Borrar';
 		li.append(description, ' ', load, ' ', remove); list.append(li);
 	}
-	document.querySelectorAll('[data-load]').forEach(b => b.onclick = () => { if (!confirmReplace()) return; form = normalizeCase(allCases().find(c => c.id === b.dataset.load)); dirty = false; render(); });
+	document.querySelectorAll('[data-load]').forEach(b => b.onclick = () => { if (!confirmReplace()) return; form = A.cleanForm(normalizeCase(allCases().find(c => c.id === b.dataset.load))); dirty = false; render(); });
 	document.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if (confirm('¿Borrar este caso?')) { deleteCase(b.dataset.del); renderSaved(); } });
-}
-
-function download(name, text, type = 'text/plain') {
-	const url = URL.createObjectURL(new Blob([text], { type }));
-	const a = el('a', { href: url, download: name }); a.click();
-	setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 async function handleMergeFiles(event) {
@@ -374,25 +375,6 @@ function renderMergePreview(preview) {
 	box.append(title, list, confirmButton);
 }
 
-function report() {
-	const r = window.currentResult;
-	const pending = r.details.filter(d => d.pending);
-	return `SIAF-CMO Pediatría
-Identificador pseudonimizado: ${form.pseudoId || 'sin especificar'}
-Hospital o centro sanitario: ${form.hospital || ''}
-Farmacéutico responsable: ${form.pharmacist || ''}
-Finalización: ${form.completedAt || 'No finalizada'}
-Grupo(s) de patología: ${(form.pathologyGroups || []).map(id => PATHOLOGY_GROUPS.find(p => p[0] === id)?.[1]).filter(Boolean).join(', ') || 'No indicado'}
-Puntuación: ${r.total}/${MAX_SCORE}
-Prioridad calculada: ${r.calculatedPriority}
-Criterio automático: ${r.automaticCause || 'No procede'}
-Prioridad final: ${r.finalPriority}
-Modificación clínica manual: ${r.override?.priority ? `${r.override.priority} (${r.override.motive || 'sin motivo'}) — ${r.override.justification}` : 'No aplicada'}
-Estado: ${form.status === 'provisional' ? 'Resultado provisional: existen variables clínicas pendientes de valoración (' + pending.map(d => d.variable.label).join(', ') + ').' : (form.status || 'draft')}
-Periodicidad: ${PERIODICITY[r.finalPriority]}
-
-Actuaciones farmacéuticas recomendadas
-${Object.values(actionsFor(r.finalPriority)).map(g => `${g.label}\n- ${g.items.join('\n- ')}`).join('\n\n')}`;
-}
+function report() { return reportToText(currentReport()); }
 
 render();

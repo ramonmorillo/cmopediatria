@@ -72,3 +72,13 @@ footer .cmo-signature__rows { grid-template-columns: none; } /* styles.css aplic
   body > .hero::before { display: none; }
   .panel, .status > div { box-shadow: none; }
 }
+
+/* Núcleo 0.3.0: indicador de progreso, estados de las actuaciones y vista previa del informe. */
+.status { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.status progress { width: 100%; }
+.status-list { list-style: none; padding: 0; display: grid; gap: .5rem; }
+.status-list li { display: grid; grid-template-columns: 1fr minmax(12rem, 18rem); gap: .75rem; align-items: center; border-bottom: 1px solid var(--cmo-rule); padding-bottom: .5rem; }
+.cmo-report dl { display: grid; }
+@media (max-width: 760px) { .status-list li { grid-template-columns: minmax(0, 1fr); } .status-list select { max-width: calc(100% - 1rem); } }
+.status-list li > span { overflow-wrap: anywhere; }
+.cmo-modal button.cmo-btn--secondary { background: var(--cmo-surface); color: var(--cmo-brand-strong); border: 1px solid var(--cmo-brand-strong); }

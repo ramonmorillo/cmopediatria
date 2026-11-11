@@ -1,6 +1,8 @@
 # Versión
 
-**1.2.0** — 30 de octubre de 2026. Identidad visual CMO Design System 0.2.0 (firma de autoría, foco y bordes accesibles). Sin cambios en las reglas clínicas.
+**1.3.0** — sin publicar. Informe único con PDF, registro de estado de las actuaciones, plan de seguimiento, necesidades y resultado provisional con cota superior; importación validada. Sin cambios en las reglas clínicas (solo la constante `VERSION`).
+
+Anterior: **1.2.0** — 30 de octubre de 2026. Identidad visual CMO Design System 0.2.0 (firma de autoría, foco y bordes accesibles). Sin cambios en las reglas clínicas.
 
 Anterior: 1.1.0 — Seguimiento longitudinal y consolidación local segura de registros.
 
