@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.3.0 — sin publicar (rama `claude/zen-pasteur-u8tn7z`)
+## 1.3.0 — 2026-11-11
 
 Informe único con PDF, registro del estado de las actuaciones, plan de seguimiento, necesidades y resultado provisional con cota superior; importación validada y corrección de defectos. **Sin cambios en las reglas clínicas**: `src/extractor.js` es idéntico; `src/clinical.js` solo cambia la constante `VERSION` (1.2.0 → 1.3.0, la misma que muestra la firma); la huella de las pruebas normaliza esa línea. La fecha y el estado de publicación se fijan en el commit de publicación.
 
